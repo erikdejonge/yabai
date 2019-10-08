@@ -1,13 +1,13 @@
 '\" t
 .\"     Title: yabai
 .\"    Author: [see the "AUTHOR(S)" section]
-.\" Generator: Asciidoctor 2.0.6
-.\"      Date: 2019-08-17
+.\" Generator: Asciidoctor 2.0.7
+.\"      Date: 2019-09-29
 .\"    Manual: Yabai Manual
 .\"    Source: Yabai
 .\"  Language: English
 .\"
-.TH "YABAI" "1" "2019-08-17" "Yabai" "Yabai Manual"
+.TH "YABAI" "1" "2019-09-29" "Yabai" "Yabai Manual"
 .ie \n(.g .ds Aq \(aq
 .el       .ds Aq '
 .ss \n[.ss] 0
@@ -382,7 +382,7 @@ If type is \fIrel\fP the selected window is moved by \fIdx\fP pixels horizontall
 Resize the selected window by moving the given handle \fIdx\fP pixels horizontally and \fIdy\fP pixels vertically. If handle is \fIabs\fP the new size will be \fIdx\fP width and \fIdy\fP height.
 .RE
 .sp
-\fB\-\-toggle\fP \fIfloat|sticky|shadow|split|border|zoom\-parent|zoom\-fullscreen|native\-fullscreen|expose\fP
+\fB\-\-toggle\fP \fIfloat|sticky|topmost|shadow|split|border|zoom\-parent|zoom\-fullscreen|native\-fullscreen|expose\fP
 .RS 4
 Toggle the given property of the selected window.
 .RE
@@ -492,6 +492,11 @@ Window should be managed (tile vs float)
 \fBsticky=\fI<BOOL_SEL>\fP\fP
 .RS 4
 Window appears on all spaces.
+.RE
+.sp
+\fBtopmost=\fI<BOOL_SEL>\fP\fP
+.RS 4
+Window appears above other windows.
 .RE
 .sp
 \fBborder=\fI<BOOL_SEL>\fP\fP

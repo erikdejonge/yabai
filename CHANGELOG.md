@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Changed
+- Don't draw borders for minimized or hidden windows when a display is (dis)connected [#250](https://github.com/koekeishiya/yabai/issues/250)
+- Sticky windows are no longer automatically topmost. New option to toggle window always on top through command or rule. New attribute topmost returned in window queries. [#255](https://github.com/koekeishiya/yabai/issues/255)
+- Prevent the last user-space from being destroyed or moved to another display, because macOS does not actually support this [#182](https://github.com/koekeishiya/yabai/issues/182)
+
+## [2.0.1] - 2019-09-04
+### Changed
+- *window_opacity_duration* was a *copy-pasta* job [#208](https://github.com/koekeishiya/yabai/issues/208)
+
+## [2.0.0] - 2019-09-03
 ### Added
 - Commands to toggle mission-control, show-desktop, and application expose [#147](https://github.com/koekeishiya/yabai/issues/147)
 - Command to close windows that provide a close button in its titlebar [#84](https://github.com/koekeishiya/yabai/issues/84)
@@ -97,7 +107,9 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 ### Added
 - First official release
 
-[Unreleased]: https://github.com/koekeishiya/yabai/compare/v1.1.2...HEAD
+[Unreleased]: https://github.com/koekeishiya/yabai/compare/v2.0.1...HEAD
+[2.0.1]: https://github.com/koekeishiya/yabai/compare/v2.0.0...v2.0.1
+[2.0.0]: https://github.com/koekeishiya/yabai/compare/v1.1.2...v2.0.0
 [1.1.2]: https://github.com/koekeishiya/yabai/compare/v1.1.1...v1.1.2
 [1.1.1]: https://github.com/koekeishiya/yabai/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/koekeishiya/yabai/compare/v1.0.6...v1.1.0

@@ -119,6 +119,7 @@ void window_serialize(FILE *rsp, struct window *window)
     int space = space_manager_mission_control_index(sid);
     int display = display_arrangement(space_display_id(sid));
     bool visible = sticky || space_is_visible(sid);
+    bool is_topmost = window_is_topmost(window);
 
     CFStringRef cfrole = window_role(window);
     if (cfrole) {
@@ -159,6 +160,7 @@ void window_serialize(FILE *rsp, struct window *window)
             "\t\"split\":\"%s\",\n"
             "\t\"floating\":%d,\n"
             "\t\"sticky\":%d,\n"
+            "\t\"topmost\":%d,\n"
             "\t\"border\":%d,\n"
             "\t\"shadow\":%d,\n"
             "\t\"zoom-parent\":%d,\n"
@@ -183,6 +185,7 @@ void window_serialize(FILE *rsp, struct window *window)
             split,
             window->is_floating,
             sticky,
+            is_topmost,
             window->border.enabled,
             window->has_shadow,
             zoom_parent,
@@ -200,7 +203,12 @@ char *window_title(struct window *window)
     char *title = NULL;
     CFTypeRef value = NULL;
 
+#if 0
     SLSCopyWindowProperty(g_connection, window->id, CFSTR("kCGSWindowTitle"), &value);
+#else
+    AXUIElementCopyAttributeValue(window->ref, kAXTitleAttribute, &value);
+#endif
+
     if (value) {
         title = cfstring_copy(value);
         CFRelease(value);
@@ -301,6 +309,12 @@ err:
     CFRelease(window_list_ref);
     CFRelease(window_id_ref);
     return result;
+}
+
+bool window_is_topmost(struct window *window)
+{
+    bool is_topmost = window_level(window) == CGWindowLevelForKey(kCGFloatingWindowLevelKey);
+    return is_topmost;
 }
 
 int window_level(struct window *window)
