@@ -956,27 +956,115 @@ static EVENT_CALLBACK(EVENT_HANDLER_MOUSE_UP)
             struct window_node *a_node = view_find_window_node(src_view, g_mouse_state.window->id);
             struct window_node *b_node = window ? view_find_window_node(dst_view, window->id) : NULL;
 
-            if (src_view->sid == dst_view->sid) {
-                if (a_node && b_node) {
+            /*
+             * @cleanup
+             *
+             * NOTE(koekeishiya): The following section of code contains duplicated code,
+             * but is left inline as-is for readability purposes. Consider replacing with
+             * macros, because C does not allow for locally-scoped functions.
+             * */
+
+            if (a_node && b_node) {
+                CGRect frame = window_ax_frame(window);
+                CGPoint point_in_window = {
+                    .x = point.x - frame.origin.x,
+                    .y = point.y - frame.origin.y
+                };
+
+                CGRect window_center;
+                window_center.origin.x    = 0.25f * frame.size.width;
+                window_center.origin.y    = 0.25f * frame.size.height;
+                window_center.size.width  = 0.50f * frame.size.width;
+                window_center.size.height = 0.50f * frame.size.height;
+
+                CGPoint top_triangle[3];
+                top_triangle[0].x = 0.0f;
+                top_triangle[0].y = 0.0f;
+                top_triangle[1].x = 0.5f * frame.size.width;
+                top_triangle[1].y = 0.5f * frame.size.height;
+                top_triangle[2].x = frame.size.width;
+                top_triangle[2].y = 0.0f;
+
+                CGPoint right_triangle[3];
+                right_triangle[0].x = frame.size.width;
+                right_triangle[0].y = 0.0f;
+                right_triangle[1].x = 0.5f * frame.size.width;
+                right_triangle[1].y = 0.5f * frame.size.height;
+                right_triangle[2].x = frame.size.width;
+                right_triangle[2].y = frame.size.height;
+
+                CGPoint bottom_triangle[3];
+                bottom_triangle[0].x = frame.size.width;
+                bottom_triangle[0].y = frame.size.height;
+                bottom_triangle[1].x = 0.5f * frame.size.width;
+                bottom_triangle[1].y = 0.5f * frame.size.height;
+                bottom_triangle[2].x = 0.0f;
+                bottom_triangle[2].y = frame.size.height;
+
+                CGPoint left_triangle[3];
+                left_triangle[0].x = 0.0f;
+                left_triangle[0].y = frame.size.height;
+                left_triangle[1].x = 0.5f * frame.size.width;
+                left_triangle[1].y = 0.5f * frame.size.height;
+                left_triangle[2].x = 0.0f;
+                left_triangle[2].y = 0.0f;
+
+                enum window_node_split new_split;
+                enum window_node_child new_child;
+
+                if (CGRectContainsPoint(window_center, point_in_window)) {
+do_swap:
                     a_node->window_id = window->id;
                     a_node->zoom = NULL;
                     b_node->window_id = g_mouse_state.window->id;
                     b_node->zoom = NULL;
                     window_node_flush(a_node);
                     window_node_flush(b_node);
-                } else if (a_node) {
-                    a_node->zoom = NULL;
-                    window_node_flush(a_node);
+                    goto end;
+                } else if (triangle_contains_point(top_triangle, point_in_window)) {
+                    new_split = SPLIT_X;
+                    new_child = CHILD_FIRST;
+                } else if (triangle_contains_point(right_triangle, point_in_window)) {
+                    new_split = SPLIT_Y;
+                    new_child = CHILD_SECOND;
+                } else if (triangle_contains_point(bottom_triangle, point_in_window)) {
+                    new_split = SPLIT_X;
+                    new_child = CHILD_SECOND;
+                } else if (triangle_contains_point(left_triangle, point_in_window)) {
+                    new_split = SPLIT_Y;
+                    new_child = CHILD_FIRST;
+                } else {
+                    goto end;
                 }
-            } else {
+
+                if (a_node->parent == b_node->parent) {
+                    if (b_node->parent->split == new_split) {
+                        goto do_swap;
+                    } else {
+                        b_node->parent->split = new_split;
+                        b_node->parent->child = new_child;
+                    }
+                } else {
+                    b_node->split = new_split;
+                    b_node->child = new_child;
+                }
+
                 space_manager_untile_window(&g_space_manager, src_view, g_mouse_state.window);
                 window_manager_remove_managed_window(&g_window_manager, g_mouse_state.window->id);
                 window_manager_purify_window(&g_window_manager, g_mouse_state.window);
 
-                if (a_node && b_node) {
-                    struct view *view = space_manager_tile_window_on_space_with_insertion_point(&g_space_manager, g_mouse_state.window, dst_view->sid, window->id);
-                    window_manager_add_managed_window(&g_window_manager, g_mouse_state.window, view);
+                struct view *view = space_manager_tile_window_on_space_with_insertion_point(&g_space_manager, g_mouse_state.window, dst_view->sid, window->id);
+                window_manager_add_managed_window(&g_window_manager, g_mouse_state.window, view);
+end:;
+            } else if (a_node) {
+                if (src_view->sid == dst_view->sid) {
+                    a_node->zoom = NULL;
+                    window_node_flush(a_node);
                 } else {
+                    space_manager_untile_window(&g_space_manager, src_view, g_mouse_state.window);
+                    window_manager_remove_managed_window(&g_window_manager, g_mouse_state.window->id);
+                    window_manager_purify_window(&g_window_manager, g_mouse_state.window);
+
                     struct view *view = space_manager_tile_window_on_space(&g_space_manager, g_mouse_state.window, dst_view->sid);
                     window_manager_add_managed_window(&g_window_manager, g_mouse_state.window, view);
                 }

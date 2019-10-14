@@ -90,8 +90,14 @@ static CGMutablePathRef border_insert_shape(struct border *border, CGRect frame,
     return insert;
 }
 
-static float border_radius_clamp(CGRect frame, float radius)
+static inline float border_radius_clamp(CGRect frame, float radius, int width)
 {
+    if (fabs(radius) < 0.01f) {
+      radius = 0.0f;
+    } else if (radius == -1.0f) {
+      radius = 2.0f * width;
+    }
+
     if (radius * 2 > CGRectGetWidth(frame)) {
         radius = CGRectGetWidth(frame) / 2;
     }
@@ -111,6 +117,8 @@ void border_window_refresh(struct window *window)
     border_window_ensure_same_space(window);
 
     CFTypeRef region_ref;
+    CGRect border_frame;
+
     CGRect region = window_ax_frame(window);
     region.origin.x -= border->width;
     region.origin.y -= border->width;
@@ -118,11 +126,17 @@ void border_window_refresh(struct window *window)
     region.size.height += (2*border->width);
     CGSNewRegionWithRect(&region, &region_ref);
 
-    CGRect border_frame = { { 0.5f*border->width, 0.5f*border->width }, { region.size.width - border->width, region.size.height - border->width} };
-    CGRect clear_region = { { 0, 0 }, { region.size.width, region.size.height } };
+    if (g_window_manager.window_border_placement == BORDER_PLACEMENT_EXTERIOR) {
+        border_frame = (CGRect) { { 0.5f*border->width, 0.5f*border->width }, { region.size.width - border->width, region.size.height - border->width} };
+    } else if (g_window_manager.window_border_placement == BORDER_PLACEMENT_INTERIOR) {
+        border_frame = (CGRect) { { 1.5f*border->width, 1.5f*border->width }, { region.size.width - 3*border->width, region.size.height - 3*border->width } };
+    } else {
+        border_frame = (CGRect) { { border->width, border->width }, { region.size.width - 2*border->width, region.size.height - 2*border->width } };
+    }
 
-    float radius = border_radius_clamp(border_frame, 2.0f * border->width);
+    float radius = border_radius_clamp(border_frame, border->radius, border->width);
     CGMutablePathRef path = border_normal_shape(border_frame, radius);
+    CGRect clear_region = { { 0, 0 }, { region.size.width, region.size.height } };
 
     SLSDisableUpdate(g_connection);
     SLSOrderWindow(g_connection, border->id, 0, window->id);
@@ -157,7 +171,8 @@ void border_window_activate(struct window *window)
     struct border *border = &window->border;
     border->color = rgba_color_from_hex(g_window_manager.active_window_border_color);
     CGContextSetRGBStrokeColor(border->context, border->color.r, border->color.g, border->color.b, border->color.a);
-    SLSSetWindowLevel(g_connection, window->border.id, window_level(window));
+    int level = g_window_manager.window_border_placement == BORDER_PLACEMENT_EXTERIOR ? window_level(window) : CGWindowLevelForKey(kCGModalPanelWindowLevelKey);
+    SLSSetWindowLevel(g_connection, window->border.id, level);
 
     if (window_is_fullscreen(window)) {
         border_window_hide(window);
@@ -207,6 +222,7 @@ void border_window_create(struct window *window)
     border->color = rgba_color_from_hex(g_window_manager.normal_window_border_color);
     border->insert_color = rgba_color_from_hex(g_window_manager.insert_window_border_color);
     border->width = g_window_manager.window_border_width;
+    border->radius = g_window_manager.window_border_radius;
     border->enabled = true;
 
     CFTypeRef frame_region;

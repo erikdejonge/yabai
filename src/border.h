@@ -22,11 +22,26 @@ extern CGError CGSNewRegionWithRect(CGRect *rect, CFTypeRef *outRegion);
 #define kCGSIgnoreForExposeTagBit       (1 <<  7)
 #define kCGSStickyTagBit                (1 << 11)
 
+enum border_placement
+{
+    BORDER_PLACEMENT_EXTERIOR = 0,
+    BORDER_PLACEMENT_INTERIOR = 1,
+    BORDER_PLACEMENT_INSET    = 2,
+};
+
+static const char *border_placement_str[] =
+{
+    "exterior",
+    "interior",
+    "inset"
+};
+
 struct border
 {
     CGContextRef context;
     uint32_t id;
     int width;
+    float radius;
     struct rgba_color color;
     struct rgba_color insert_color;
     bool insert_active;
