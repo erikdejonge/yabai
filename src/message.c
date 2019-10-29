@@ -30,6 +30,7 @@ extern struct bar g_bar;
 #define COMMAND_CONFIG_BORDER_PLACEMENT      "window_border_placement"
 #define COMMAND_CONFIG_ACTIVE_WINDOW_OPACITY "active_window_opacity"
 #define COMMAND_CONFIG_NORMAL_WINDOW_OPACITY "normal_window_opacity"
+#define COMMAND_CONFIG_ACTIVE_BORDER_TOPMOST "active_window_border_topmost"
 #define COMMAND_CONFIG_ACTIVE_BORDER_COLOR   "active_window_border_color"
 #define COMMAND_CONFIG_NORMAL_BORDER_COLOR   "normal_window_border_color"
 #define COMMAND_CONFIG_INSERT_BORDER_COLOR   "insert_window_border_color"
@@ -92,6 +93,7 @@ extern struct bar g_bar;
 #define COMMAND_SPACE_GAP     "--gap"
 #define COMMAND_SPACE_TOGGLE  "--toggle"
 #define COMMAND_SPACE_LAYOUT  "--layout"
+#define COMMAND_SPACE_LABEL   "--label"
 
 #define ARGUMENT_SPACE_MIRROR_X     "x-axis"
 #define ARGUMENT_SPACE_MIRROR_Y     "y-axis"
@@ -194,12 +196,6 @@ extern struct bar g_bar;
 #define ARGUMENT_COMMON_SEL_LAST   "last"
 #define ARGUMENT_COMMON_SEL_RECENT "recent"
 /* ----------------------------------------------------------------------------- */
-
-struct token
-{
-    char *text;
-    unsigned int length;
-};
 
 static bool token_equals(struct token token, char *match)
 {
@@ -466,6 +462,17 @@ static void handle_domain_config(FILE *rsp, struct token domain, char *message)
             } else {
                 daemon_fail(rsp, "unknown value '%.*s' given to command '%.*s' for domain '%.*s'\n", value.length, value.text, command.length, command.text, domain.length, domain.text);
             }
+        }
+    } else if (token_equals(command, COMMAND_CONFIG_ACTIVE_BORDER_TOPMOST)) {
+        struct token value = get_token(&message);
+        if (!token_is_valid(value)) {
+            fprintf(rsp, "%s\n", bool_str[g_window_manager.active_window_border_topmost]);
+        } else if (token_equals(value, ARGUMENT_COMMON_VAL_OFF)) {
+            g_window_manager.active_window_border_topmost = false;
+        } else if (token_equals(value, ARGUMENT_COMMON_VAL_ON)) {
+            g_window_manager.active_window_border_topmost = true;
+        } else {
+            daemon_fail(rsp, "unknown value '%.*s' given to command '%.*s' for domain '%.*s'\n", value.length, value.text, command.length, command.text, domain.length, domain.text);
         }
     } else if (token_equals(command, COMMAND_CONFIG_ACTIVE_BORDER_COLOR)) {
         struct token value = get_token(&message);
@@ -817,6 +824,44 @@ struct selector
     };
 };
 
+enum label_type
+{
+    LABEL_SPACE,
+};
+
+static char *reserved_space_identifiers[] =
+{
+    ARGUMENT_COMMON_SEL_PREV,
+    ARGUMENT_COMMON_SEL_NEXT,
+    ARGUMENT_COMMON_SEL_FIRST,
+    ARGUMENT_COMMON_SEL_LAST,
+    ARGUMENT_COMMON_SEL_RECENT
+};
+
+static char *parse_label(FILE *rsp, char **message, enum label_type type)
+{
+    struct token value = get_token(message);
+
+    if ((!token_is_valid(value)) || (value.text[0] >= '0' && value.text[0] <= '9')) {
+        daemon_fail(rsp, "'%.*s' is not a valid label\n", value.length, value.text);
+        return NULL;
+    }
+
+    switch (type) {
+    case LABEL_SPACE: {
+        for (int i = 0; i < array_count(reserved_space_identifiers); ++i) {
+            if (token_equals(value, reserved_space_identifiers[i])) {
+                daemon_fail(rsp, "'%.*s' is a reserved keyword and cannot be used as a label\n", value.length, value.text);
+                return NULL;
+            }
+        }
+    } break;
+    default: {} break;
+    }
+
+    return token_to_string(value);
+}
+
 static uint8_t parse_value_type(char *type)
 {
     if (string_equals(type, "abs")) {
@@ -982,8 +1027,14 @@ static struct selector parse_space_selector(FILE *rsp, char **message, uint64_t 
                 daemon_fail(rsp, "invalid mission-control index specified '%d'.\n", mci);
             }
         } else {
-            result.did_parse = false;
-            daemon_fail(rsp, "value '%.*s' is not a valid option for SPACE_SEL\n", result.token.length, result.token.text);
+            struct space_label *space_label = space_manager_get_space_for_label(&g_space_manager, result.token);
+            if (space_label) {
+                result.did_parse = true;
+                result.sid = space_label->sid;
+            } else {
+                result.did_parse = false;
+                daemon_fail(rsp, "value '%.*s' is not a valid option for SPACE_SEL\n", result.token.length, result.token.text);
+            }
         }
     } else {
         result.did_parse = false;
@@ -1322,6 +1373,11 @@ static void handle_domain_space(FILE *rsp, struct token domain, char *message)
             }
         } else {
             daemon_fail(rsp, "unknown value '%.*s' given to command '%.*s' for domain '%.*s'\n", value.length, value.text, command.length, command.text, domain.length, domain.text);
+        }
+    } else if (token_equals(command, COMMAND_SPACE_LABEL)) {
+        char *label = parse_label(rsp, &message, LABEL_SPACE);
+        if (label) {
+            space_manager_set_label_for_space(&g_space_manager, acting_sid, label);
         }
     } else {
         daemon_fail(rsp, "unknown command '%.*s' for domain '%.*s'\n", command.length, command.text, domain.length, domain.text);
